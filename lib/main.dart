@@ -1,19 +1,88 @@
-// Copyright 2018-present the Flutter authors. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-// http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'todo.dart';
 
-import 'app.dart';
+void main() {
+  runApp(MyApp());
+}
 
-void main() => runApp(const ShrineApp());
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Todo List App',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: TodoListScreen(),
+    );
+  }
+}
+
+class TodoListScreen extends StatefulWidget {
+  @override
+  _TodoListScreenState createState() => _TodoListScreenState();
+}
+
+class _TodoListScreenState extends State<TodoListScreen> {
+  late Future<List<Todo>> futureTodos;
+
+  @override
+  void initState() {
+    super.initState();
+    futureTodos = fetchTodos();
+  }
+
+  Future<List<Todo>> fetchTodos() async {
+    final response = await http.get(Uri.parse(
+        'https://jsonplaceholder.typicode.com/todos?_start=0&_limit=10'));
+
+    if (response.statusCode == 200) {
+      List jsonResponse = json.decode(response.body);
+      return jsonResponse.map((todo) => Todo.fromJson(todo)).toList();
+    } else {
+      throw Exception('Failed to load todos');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Todo List'),
+      ),
+      body: Center(
+        child: FutureBuilder<List<Todo>>(
+          future: futureTodos,
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              return ListView.builder(
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(snapshot.data![index].title),
+                    subtitle: Text('ID: ${snapshot.data![index].id}'),
+                    trailing: Icon(
+                      snapshot.data![index].completed
+                          ? Icons.check_circle
+                          : Icons.circle,
+                      color: snapshot.data![index].completed
+                          ? Colors.green
+                          : Colors.red,
+                    ),
+                  );
+                },
+              );
+            } else if (snapshot.hasError) {
+              return Text("${snapshot.error}");
+            }
+
+            // By default, show a loading spinner.
+            return CircularProgressIndicator();
+          },
+        ),
+      ),
+    );
+  }
+}
